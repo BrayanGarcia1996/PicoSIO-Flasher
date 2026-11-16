@@ -1,9 +1,14 @@
-name: Compilar Paquete Completo Windows
+name: Compilar y Publicar Release Windows
 
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -36,9 +41,9 @@ jobs:
         New-Item -ItemType Directory -Force -Path "release_pkg/tools/openocd" | Out-Null
         
         Copy-Item "dist/PicoSIO-Flasher.exe" -Destination "release_pkg/"
+        if (Test-Path "chips_db.json") { Copy-Item "chips_db.json" -Destination "release_pkg/" }
         if (Test-Path "README.md") { Copy-Item "README.md" -Destination "release_pkg/" }
 
-        # 1. Descargar debugprobe.uf2 oficial
         try {
           $release = Invoke-RestMethod -Uri "https://github.com"
           $asset = $release.assets | Where-Object { $_.name -like "*.uf2" } | Select-Object -First 1
@@ -49,7 +54,6 @@ jobs:
           Write-Output "Saltando debugprobe.uf2"
         }
 
-        # 2. Descargar repositorio ITE como ZIP (sin usar git clone)
         try {
           Invoke-WebRequest -Uri "https://github.com" -OutFile "ite.zip"
           Expand-Archive -Path "ite.zip" -DestinationPath "temp_ite" -Force
@@ -59,13 +63,17 @@ jobs:
           Write-Output "Saltando repositorio ITE"
         }
 
+        Compress-Archive -Path "release_pkg/*" -DestinationPath "PicoSIO-Flasher-Win64.zip" -Force
         exit 0
 
-    - name: Subir paquete completo listo para Windows
+    - name: Subir artefacto en Acciones
       uses: actions/upload-artifact@v4
       with:
         name: PicoSIO-Flasher-Completo-Win64
-        path: release_pkg/
+        path: PicoSIO-Flasher-Win64.zip
 
-
-
+    - name: Publicar Release oficial si es una etiqueta de versión (v*)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: PicoSIO-Flasher-Win64.zip
