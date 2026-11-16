@@ -1,0 +1,36 @@
+{
+  "ITE": {
+    "IT8586E / IT8587E (128 KB)": {
+      "size": "128 KB",
+      "pinout": "CONEXIÓN ITE IT858x (SMBus/I2C):\n• GP0 -> SDA (KSI4)\n• GP1 -> SCL (KSI5)\n• GP2 -> Activación (KSI6 / KSI7)\n• GND -> GND Placa madre\n* Alimentar placa base con su propio cargador (3.3V Always-On)."
+    },
+    "IT8987E / IT8227E (128 KB / 256 KB)": {
+      "size": "128 KB / 256 KB",
+      "pinout": "CONEXIÓN ITE IT8987E / IT8227E (SMBus/I2C):\n• GP0 -> SDA (KSI4)\n• GP1 -> SCL (KSI5)\n• GP2 -> Activación (KSI6)\n• GND -> GND Placa madre\n* Verificar pin de entrada a modo debug en el esquemático."
+    },
+    "IT5570E / IT5571E (128 KB / 256 KB)": {
+      "size": "128 KB / 256 KB",
+      "pinout": "CONEXIÓN ITE Serie IT55xx (SMBus/I2C):\n• GP0 -> SDA (KSI4)\n• GP1 -> SCL (KSI5)\n• GP2 -> Activación (KSI6)\n• GND -> GND Placa madre\n* Requiere secuencia DBGR bitbang activa."
+    }
+  },
+  "ENE": {
+    "KB9012QF (128 KB)": {
+      "size": "128 KB",
+      "pinout": "CONEXIÓN ENE KB9012 (SPI via Teclado):\n• GP16 (MISO) -> KSI5\n• GP17 (CS)   -> KSO3\n• GP18 (SCK)  -> KSI4\n• GP19 (MOSI) -> KSI6\n• GND         -> GND Placa + Pin KSI7 (EDI_CS)"
+    },
+    "KB9022Q / KB9028Q (128 KB)": {
+      "size": "128 KB",
+      "pinout": "CONEXIÓN ENE KB9022 / KB9028 (SPI via Teclado):\n• GP16 (MISO) -> KSI5\n• GP17 (CS)   -> KSO3\n• GP18 (SCK)  -> KSI4\n• GP19 (MOSI) -> KSI6\n• GND         -> GND Placa + Pin EDI_CS (verificar boardview)"
+    }
+  },
+  "NUVOTON_SMSC": {
+    "Nuvoton NPCE288 / NPCE388 (256 KB)": {
+      "size": "256 KB",
+      "pinout": "CONEXIÓN NUVOTON NPCE (SWD / CMSIS-DAP):\n• GP2 -> SWCLK\n• GP3 -> SWDIO\n• GP4 -> RESET#\n• GND -> GND Placa madre\n* Usar firmware Debugprobe en la Pico."
+    },
+    "Microchip / SMSC MEC1609 / MEC1633 (256 KB)": {
+      "size": "256 KB",
+      "pinout": "CONEXIÓN SMSC / MICROCHIP MEC (JTAG / SWD):\n• GP2 -> TCK / SWCLK\n• GP3 -> TMS / SWDIO\n• GP4 -> RESET#\n• GND -> GND Placa madre\n* Verificar pines JTAG en los pads de prueba de la placa."
+    }
+  }
+}
