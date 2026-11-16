@@ -1,0 +1,34 @@
+name: Compilar Ejecutable Windows
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Descargar código del repositorio
+      uses: actions/checkout@v4
+
+    - name: Configurar Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Empaquetar a .EXE con PyInstaller
+      run: |
+        pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
+
+    - name: Subir ejecutable como artefacto descargable
+      uses: actions/upload-artifact@v4
+      with:
+        name: PicoSIO-Flasher-Windows
+        path: dist/PicoSIO-Flasher.exe
