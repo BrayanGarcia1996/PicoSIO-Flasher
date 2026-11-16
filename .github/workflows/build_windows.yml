@@ -62,6 +62,30 @@ jobs:
         } catch {
           Write-Output "Saltando repositorio ITE"
         }
+        # 3. Descargar OpenOCD oficial para Windows (xPack)
+        try {
+          $ocdRelease = Invoke-RestMethod -Uri "https://github.com"
+          $ocdAsset = $ocdRelease.assets | Where-Object { $_.name -like "*win32-x64.zip" } | Select-Object -First 1
+          if ($ocdAsset) {
+            Invoke-WebRequest -Uri $ocdAsset.browser_download_url -OutFile "openocd.zip"
+            Expand-Archive -Path "openocd.zip" -DestinationPath "temp_ocd" -Force
+            $ocdFolder = Get-ChildItem -Path "temp_ocd" -Directory | Select-Object -First 1
+            Copy-Item "$($ocdFolder.FullName)/*" -Destination "release_pkg/tools/openocd/" -Recurse -Force
+          }
+        } catch {
+          Write-Output "Saltando OpenOCD"
+        }
+
+        # 4. Descargar pico_serprog.uf2 desde GitHub
+        try {
+          $serprogRelease = Invoke-RestMethod -Uri "https://github.com"
+          $serprogAsset = $serprogRelease.assets | Where-Object { $_.name -like "*.uf2" } | Select-Object -First 1
+          if ($serprogAsset) {
+            Invoke-WebRequest -Uri $serprogAsset.browser_download_url -OutFile "release_pkg/firmwares/pico_serprog.uf2"
+          }
+        } catch {
+          Write-Output "Saltando pico_serprog.uf2"
+        }
 
         Compress-Archive -Path "release_pkg/*" -DestinationPath "PicoSIO-Flasher-Win64.zip" -Force
         exit 0
