@@ -27,40 +27,38 @@ jobs:
       - name: Preparar Paquete y Descargar Firmwares
         shell: pwsh
         run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           New-Item -ItemType Directory -Force -Path "release_pkg/firmwares","release_pkg/tools/ite_scripts","release_pkg/tools/flashrom","release_pkg/tools/openocd" | Out-Null
           Copy-Item "dist/PicoSIO-Flasher.exe","chips_db.json","README.md" -Destination "release_pkg/" -ErrorAction SilentlyContinue
-          $h = @{ "User-Agent" = "PicoSIO" }
+          "Coloca aqui flashrom.exe y sus DLLs" | Out-File "release_pkg/tools/flashrom/LEEME.txt"
 
+          # 1. Debugprobe oficial para Raspberry Pi Pico
           try {
-            $r = Invoke-RestMethod "https://github.com" -Headers $h
-            $a = $r.assets | Where-Object { $_.name -eq "debugprobe.uf2" } | Select-Object -First 1
-            if ($a) { Invoke-WebRequest $a.browser_download_url -OutFile "release_pkg/firmwares/debugprobe.uf2" }
-          } catch {}
+            Invoke-WebRequest -Uri "https://github.com" -OutFile "release_pkg/firmwares/debugprobe.uf2"
+          } catch { Write-Output "Fallo debugprobe: $_" }
 
+          # 2. pico_serprog.uf2 (desde opensensor/pico-serprog)
           try {
-            Invoke-WebRequest "https://github.com" -OutFile "ite.zip"
+            Invoke-WebRequest -Uri "https://github.com" -OutFile "release_pkg/firmwares/pico_serprog.uf2"
+          } catch { Write-Output "Fallo serprog: $_" }
+
+          # 3. Scripts y firmware ITE
+          try {
+            Invoke-WebRequest -Uri "https://github.com" -OutFile "ite.zip"
             Expand-Archive "ite.zip" "temp_ite" -Force
             Get-ChildItem "temp_ite" -Recurse -Filter "*.py" | Copy-Item -Destination "release_pkg/tools/ite_scripts/"
             Get-ChildItem "temp_ite" -Recurse -Filter "*.uf2" | Select-Object -First 1 | Copy-Item -Destination "release_pkg/firmwares/ite_ec.uf2"
-          } catch {}
+          } catch { Write-Output "Fallo ITE: $_" }
 
+          # 4. OpenOCD Windows (xPack v0.12.0-7)
           try {
-            $o = Invoke-RestMethod "https://github.com" -Headers $h
-            $oa = $o.assets | Where-Object { $_.name -like "*win32-x64.zip" } | Select-Object -First 1
-            if ($oa) {
-              Invoke-WebRequest $oa.browser_download_url -OutFile "ocd.zip"
-              Expand-Archive "ocd.zip" "temp_ocd" -Force
-              $dir = Get-ChildItem "temp_ocd" -Directory | Select-Object -First 1
-              Copy-Item "$($dir.FullName)/*" -Destination "release_pkg/tools/openocd/" -Recurse -Force
-            }
-          } catch {}
+            Invoke-WebRequest -Uri "https://github.com" -OutFile "ocd.zip"
+            Expand-Archive "ocd.zip" "temp_ocd" -Force
+            $dir = Get-ChildItem "temp_ocd" -Directory | Select-Object -First 1
+            Copy-Item "$($dir.FullName)/*" -Destination "release_pkg/tools/openocd/" -Recurse -Force
+          } catch { Write-Output "Fallo OpenOCD: $_" }
 
-          try {
-            $s = Invoke-RestMethod "https://github.com" -Headers $h
-            $sa = $s.assets | Where-Object { $_.name -like "*.uf2" } | Select-Object -First 1
-            if ($sa) { Invoke-WebRequest $sa.browser_download_url -OutFile "release_pkg/firmwares/pico_serprog.uf2" }
-          } catch {}
-
+          Write-Output "=== CONTENIDO DEL ZIP ==="
           Get-ChildItem "release_pkg" -Recurse -File | ForEach-Object { $_.FullName }
           Compress-Archive "release_pkg/*" "PicoSIO-Flasher-Win64.zip" -Force
 
