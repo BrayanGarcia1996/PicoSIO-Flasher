@@ -27,20 +27,18 @@ jobs:
       run: |
         pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
 
-    - name: Crear estructura de carpetas del paquete final
+    - name: Crear estructura y descargar firmwares
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Force -Path "release_pkg/firmwares" | Out-Null
         New-Item -ItemType Directory -Force -Path "release_pkg/tools/ite_scripts" | Out-Null
         New-Item -ItemType Directory -Force -Path "release_pkg/tools/flashrom" | Out-Null
         New-Item -ItemType Directory -Force -Path "release_pkg/tools/openocd" | Out-Null
+        
         Copy-Item "dist/PicoSIO-Flasher.exe" -Destination "release_pkg/"
         if (Test-Path "README.md") { Copy-Item "README.md" -Destination "release_pkg/" }
 
-    - name: Descargar Firmwares y Scripts (sin detener compilación si falla un enlace)
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = "Continue"
+        # 1. Descargar debugprobe.uf2 oficial
         try {
           $release = Invoke-RestMethod -Uri "https://github.com"
           $asset = $release.assets | Where-Object { $_.name -like "*.uf2" } | Select-Object -First 1
@@ -48,23 +46,26 @@ jobs:
             Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "release_pkg/firmwares/debugprobe.uf2"
           }
         } catch {
-          Write-Host "Aviso: No se pudo descargar debugprobe.uf2 automáticamente."
+          Write-Output "Saltando debugprobe.uf2"
         }
 
+        # 2. Descargar repositorio ITE como ZIP (sin usar git clone)
         try {
-          git clone --depth 1 https://github.com temp_ite
-          if (Test-Path "temp_ite") {
-            Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.py" | Copy-Item -Destination "release_pkg/tools/ite_scripts/"
-            Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.uf2" | Select-Object -First 1 | Copy-Item -Destination "release_pkg/firmwares/ite_ec.uf2"
-          }
+          Invoke-WebRequest -Uri "https://github.com" -OutFile "ite.zip"
+          Expand-Archive -Path "ite.zip" -DestinationPath "temp_ite" -Force
+          Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.py" | Copy-Item -Destination "release_pkg/tools/ite_scripts/"
+          Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.uf2" | Select-Object -First 1 | Copy-Item -Destination "release_pkg/firmwares/ite_ec.uf2"
         } catch {
-          Write-Host "Aviso: No se pudo clonar el repositorio ITE."
+          Write-Output "Saltando repositorio ITE"
         }
+
+        exit 0
 
     - name: Subir paquete completo listo para Windows
       uses: actions/upload-artifact@v4
       with:
         name: PicoSIO-Flasher-Completo-Win64
         path: release_pkg/
+
 
 
