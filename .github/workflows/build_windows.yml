@@ -24,43 +24,39 @@ jobs:
           pip install -r requirements.txt
           pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
 
-      - name: Preparar Paquete y Descargar Firmwares
+            - name: Preparar Paquete y Descargar Firmwares
         shell: pwsh
         run: |
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           New-Item -ItemType Directory -Force -Path "release_pkg/firmwares","release_pkg/tools/ite_scripts","release_pkg/tools/flashrom","release_pkg/tools/openocd" | Out-Null
           Copy-Item "dist/PicoSIO-Flasher.exe","chips_db.json","README.md" -Destination "release_pkg/" -ErrorAction SilentlyContinue
           "Coloca aqui flashrom.exe y sus DLLs" | Out-File "release_pkg/tools/flashrom/LEEME.txt"
 
           # 1. Debugprobe oficial para Raspberry Pi Pico
-          try {
-            Invoke-WebRequest -Uri "https://github.com" -OutFile "release_pkg/firmwares/debugprobe.uf2"
-          } catch { Write-Output "Fallo debugprobe: $_" }
+          curl.exe -L -s "https://github.com" -o "release_pkg/firmwares/debugprobe.uf2"
 
-          # 2. pico_serprog.uf2 (desde opensensor/pico-serprog)
-          try {
-            Invoke-WebRequest -Uri "https://github.com" -OutFile "release_pkg/firmwares/pico_serprog.uf2"
-          } catch { Write-Output "Fallo serprog: $_" }
+          # 2. pico_serprog.uf2
+          curl.exe -L -s "https://github.com" -o "release_pkg/firmwares/pico_serprog.uf2"
 
-          # 3. Scripts y firmware ITE
-          try {
-            Invoke-WebRequest -Uri "https://github.com" -OutFile "ite.zip"
+          # 3. Scripts y firmware ITE (usando curl.exe)
+          curl.exe -L -s "https://github.com" -o "ite.zip"
+          if ((Get-Item "ite.zip").Length -gt 1000) {
             Expand-Archive "ite.zip" "temp_ite" -Force
             Get-ChildItem "temp_ite" -Recurse -Filter "*.py" | Copy-Item -Destination "release_pkg/tools/ite_scripts/"
             Get-ChildItem "temp_ite" -Recurse -Filter "*.uf2" | Select-Object -First 1 | Copy-Item -Destination "release_pkg/firmwares/ite_ec.uf2"
-          } catch { Write-Output "Fallo ITE: $_" }
+          }
 
-          # 4. OpenOCD Windows (xPack v0.12.0-7)
-          try {
-            Invoke-WebRequest -Uri "https://github.com" -OutFile "ocd.zip"
+          # 4. OpenOCD Windows (xPack v0.12.0-7 usando curl.exe)
+          curl.exe -L -s "https://github.com" -o "ocd.zip"
+          if ((Get-Item "ocd.zip").Length -gt 100000) {
             Expand-Archive "ocd.zip" "temp_ocd" -Force
             $dir = Get-ChildItem "temp_ocd" -Directory | Select-Object -First 1
-            Copy-Item "$($dir.FullName)/*" -Destination "release_pkg/tools/openocd/" -Recurse -Force
-          } catch { Write-Output "Fallo OpenOCD: $_" }
+            if ($dir) { Copy-Item "$($dir.FullName)/*" -Destination "release_pkg/tools/openocd/" -Recurse -Force }
+          }
 
           Write-Output "=== CONTENIDO DEL ZIP ==="
-          Get-ChildItem "release_pkg" -Recurse -File | ForEach-Object { $_.FullName }
+          Get-ChildItem "release_pkg" -Recurse -File | ForEach-Object { "$($_.Name) - $($_.Length) bytes" }
           Compress-Archive "release_pkg/*" "PicoSIO-Flasher-Win64.zip" -Force
+ 
 
       - uses: actions/upload-artifact@v4
         with:
