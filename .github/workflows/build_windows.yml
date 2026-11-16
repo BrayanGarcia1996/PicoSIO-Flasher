@@ -28,27 +28,43 @@ jobs:
         pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
 
     - name: Crear estructura de carpetas del paquete final
+      shell: pwsh
       run: |
-        New-Item -ItemType Directory -Force -Path "release_pkg/firmwares"
-        New-Item -ItemType Directory -Force -Path "release_pkg/tools/ite_scripts"
-        New-Item -ItemType Directory -Force -Path "release_pkg/tools/flashrom"
-        New-Item -ItemType Directory -Force -Path "release_pkg/tools/openocd"
+        New-Item -ItemType Directory -Force -Path "release_pkg/firmwares" | Out-Null
+        New-Item -ItemType Directory -Force -Path "release_pkg/tools/ite_scripts" | Out-Null
+        New-Item -ItemType Directory -Force -Path "release_pkg/tools/flashrom" | Out-Null
+        New-Item -ItemType Directory -Force -Path "release_pkg/tools/openocd" | Out-Null
         Copy-Item "dist/PicoSIO-Flasher.exe" -Destination "release_pkg/"
-        Copy-Item "README.md" -Destination "release_pkg/"
+        if (Test-Path "README.md") { Copy-Item "README.md" -Destination "release_pkg/" }
 
-    - name: Descargar Firmwares UF2 y Scripts ITE desde GitHub
+    - name: Descargar Firmwares y Scripts (sin detener compilación si falla un enlace)
+      shell: pwsh
       run: |
-        # 1. Debugprobe oficial (Nuvoton / SMSC)
-        Invoke-WebRequest -Uri "https://github.com" -OutFile "release_pkg/firmwares/debugprobe.uf2"
-        
-        # 2. Clonar scripts y firmware de ITE
-        git clone https://github.com temp_ite
-        Copy-Item "temp_ite/*.py" -Destination "release_pkg/tools/ite_scripts/" -ErrorAction SilentlyContinue
-        Copy-Item "temp_ite/*.uf2" -Destination "release_pkg/firmwares/ite_ec.uf2" -ErrorAction SilentlyContinue
+        $ErrorActionPreference = "Continue"
+        try {
+          $release = Invoke-RestMethod -Uri "https://github.com"
+          $asset = $release.assets | Where-Object { $_.name -like "*.uf2" } | Select-Object -First 1
+          if ($asset) {
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "release_pkg/firmwares/debugprobe.uf2"
+          }
+        } catch {
+          Write-Host "Aviso: No se pudo descargar debugprobe.uf2 automáticamente."
+        }
+
+        try {
+          git clone --depth 1 https://github.com temp_ite
+          if (Test-Path "temp_ite") {
+            Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.py" | Copy-Item -Destination "release_pkg/tools/ite_scripts/"
+            Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.uf2" | Select-Object -First 1 | Copy-Item -Destination "release_pkg/firmwares/ite_ec.uf2"
+          }
+        } catch {
+          Write-Host "Aviso: No se pudo clonar el repositorio ITE."
+        }
 
     - name: Subir paquete completo listo para Windows
       uses: actions/upload-artifact@v4
       with:
         name: PicoSIO-Flasher-Completo-Win64
         path: release_pkg/
+
 
