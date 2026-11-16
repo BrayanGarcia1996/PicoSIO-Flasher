@@ -1,4 +1,4 @@
-name: Compilar Ejecutable Windows
+name: Compilar Paquete Completo Windows
 
 on:
   push:
@@ -27,8 +27,28 @@ jobs:
       run: |
         pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
 
-    - name: Subir ejecutable como artefacto descargable
+    - name: Crear estructura de carpetas del paquete final
+      run: |
+        New-Item -ItemType Directory -Force -Path "release_pkg/firmwares"
+        New-Item -ItemType Directory -Force -Path "release_pkg/tools/ite_scripts"
+        New-Item -ItemType Directory -Force -Path "release_pkg/tools/flashrom"
+        New-Item -ItemType Directory -Force -Path "release_pkg/tools/openocd"
+        Copy-Item "dist/PicoSIO-Flasher.exe" -Destination "release_pkg/"
+        Copy-Item "README.md" -Destination "release_pkg/"
+
+    - name: Descargar Firmwares UF2 y Scripts ITE desde GitHub
+      run: |
+        # 1. Debugprobe oficial (Nuvoton / SMSC)
+        Invoke-WebRequest -Uri "https://github.com" -OutFile "release_pkg/firmwares/debugprobe.uf2"
+        
+        # 2. Clonar scripts y firmware de ITE
+        git clone https://github.com temp_ite
+        Copy-Item "temp_ite/*.py" -Destination "release_pkg/tools/ite_scripts/" -ErrorAction SilentlyContinue
+        Copy-Item "temp_ite/*.uf2" -Destination "release_pkg/firmwares/ite_ec.uf2" -ErrorAction SilentlyContinue
+
+    - name: Subir paquete completo listo para Windows
       uses: actions/upload-artifact@v4
       with:
-        name: PicoSIO-Flasher-Windows
-        path: dist/PicoSIO-Flasher.exe
+        name: PicoSIO-Flasher-Completo-Win64
+        path: release_pkg/
+
