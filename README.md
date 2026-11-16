@@ -1,19 +1,33 @@
 # PicoSIO Flasher (Windows)
 
-Programador universal de código abierto para chips **Super I/O / Embedded Controller (EC)** utilizando una placa **Raspberry Pi Pico (RP2040 / RP2350)** en Windows.
+Programador universal de código abierto para chips **Super I/O / Embedded Controller (EC)** de laptops utilizando una placa **Raspberry Pi Pico (RP2040 / RP2350)** en Windows.
 
-## Marcas soportadas
-* **ITE:** IT8586E, IT8987E, IT8227E, IT5570 (vía SMBus/I2C + secuencia bitbang)
-* **ENE:** KB9012, KB9022, KB9028 (vía SPI / serprog)
-* **Nuvoton / SMSC:** Series NPCE y MEC (vía SWD / CMSIS-DAP)
+## Características principales
+* **Interfaz gráfica unificada:** Olvídate de escribir comandos manuales en consola.
+* **Auto-flasheo de la Pico:** Carga automáticamente el firmware `.uf2` adecuado (`ITE`, `serprog` o `Debugprobe`) al conectar la Pico en modo `BOOTSEL`.
+* **Detección automática de puerto COM:** Localiza la Raspberry Pi Pico mediante su Vendor ID (`2E8A`).
+* **Base de datos de chips y pinouts:** Muestra en pantalla el tamaño de flash esperado y la guía de conexión para los modelos más comunes.
+* **Respaldo de seguridad obligatorio:** Realiza una copia automática en la carpeta `backups/` antes de sobrescribir cualquier chip.
 
-## Instrucciones de uso rápido
-1. Descarga el paquete compilado desde la pestaña **Actions** (o **Releases**).
-2. Coloca los binarios portables de `flashrom.exe` en `tools/flashrom/` y `openocd.exe` en `tools/openocd/` (y `pico_serprog.uf2` en `firmwares/`).
-3. Ejecuta `PicoSIO-Flasher.exe`.
-4. Selecciona la familia del Super I/O, conecta tu Raspberry Pi Pico presionando el botón **BOOTSEL** y haz clic en **Preparar Pico (Cargar .UF2)**.
-5. Realiza las conexiones indicadas en pantalla hacia el conector de teclado o pines del Super I/O.
-6. **Importante:** Nunca conectes el pin de 3.3V de la Pico a la placa madre; alimenta la placa con su propio cargador.
+## Modelos soportados
+
+| Fabricante | Modelos incluidos | Protocolo | Firmware Pico |
+| :--- | :--- | :--- | :--- |
+| **ITE** | IT8586E, IT8587E, IT8987E, IT8227E, IT5570E | SMBus / I2C + Bitbang | `ite_ec.uf2` |
+| **ENE** | KB9012QF, KB9022Q, KB9028Q | SPI (vía conector teclado) | `pico_serprog.uf2` |
+| **Nuvoton / SMSC** | NPCE288, NPCE388, MEC1609, MEC1633 | SWD / JTAG | `debugprobe.uf2` |
+
+## Instalación y puesta en marcha
+1. Descarga el archivo **`PicoSIO-Flasher-Win64.zip`** desde la sección **Releases** (o desde la pestaña **Actions**) y descomprímelo.
+2. Completa los ejecutables portables externos (por motivos de licencia):
+   * Coloca `flashrom.exe` dentro de `tools/flashrom/`.
+   * Coloca `openocd.exe` (y sus DLLs/scripts) dentro de `tools/openocd/`.
+   * Coloca `pico_serprog.uf2` dentro de `firmwares/`.
+3. Ejecuta **`PicoSIO-Flasher.exe`**.
+
+## Advertencia de seguridad eléctrica
+* **NUNCA conectes el pin de 3.3V de la Raspberry Pi Pico a la placa madre.**
+* Conecta siempre **GND primero** y alimenta la placa base de la laptop utilizando su propio cargador (estado *Standby / Always-On*).
 
 ## Licencia
-Distribuido bajo licencia **GNU General Public License v3.0 (GPL-3.0)**.
+Este proyecto se distribuye bajo la licencia **GNU General Public License v3.0 (GPL-3.0)**.
