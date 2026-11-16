@@ -24,7 +24,7 @@ jobs:
           pip install -r requirements.txt
           pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
 
-            - name: Preparar Paquete y Descargar Firmwares
+       - name: Preparar Paquete y Descargar Firmwares
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "release_pkg/firmwares","release_pkg/tools/ite_scripts","release_pkg/tools/flashrom","release_pkg/tools/openocd" | Out-Null
