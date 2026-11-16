@@ -1,10 +1,9 @@
-name: Compilar y Publicar Release Windows
+name: Compilar Windows
 
 on:
   push:
-    branches: [ "main" ]
-    tags:
-      - 'v*'
+    branches: [ main ]
+    tags: [ 'v*' ]
   workflow_dispatch:
 
 permissions:
@@ -13,141 +12,64 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-    - name: Descargar código del repositorio
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Configurar Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Instalar dependencias
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Instalar y Compilar EXE
+        run: |
+          pip install -r requirements.txt
+          pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
 
-    - name: Empaquetar a .EXE con PyInstaller
-      run: |
-        pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
+      - name: Preparar Paquete y Descargar Firmwares
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "release_pkg/firmwares","release_pkg/tools/ite_scripts","release_pkg/tools/flashrom","release_pkg/tools/openocd" | Out-Null
+          Copy-Item "dist/PicoSIO-Flasher.exe","chips_db.json","README.md" -Destination "release_pkg/" -ErrorAction SilentlyContinue
+          $h = @{ "User-Agent" = "PicoSIO" }
 
-    name: Compilar y Publicar Release Windows
+          try {
+            $r = Invoke-RestMethod "https://github.com" -Headers $h
+            $a = $r.assets | Where-Object { $_.name -eq "debugprobe.uf2" } | Select-Object -First 1
+            if ($a) { Invoke-WebRequest $a.browser_download_url -OutFile "release_pkg/firmwares/debugprobe.uf2" }
+          } catch {}
 
-on:
-  push:
-    branches: [ "main" ]
-    tags:
-      - 'v*'
-  workflow_dispatch:
+          try {
+            Invoke-WebRequest "https://github.com" -OutFile "ite.zip"
+            Expand-Archive "ite.zip" "temp_ite" -Force
+            Get-ChildItem "temp_ite" -Recurse -Filter "*.py" | Copy-Item -Destination "release_pkg/tools/ite_scripts/"
+            Get-ChildItem "temp_ite" -Recurse -Filter "*.uf2" | Select-Object -First 1 | Copy-Item -Destination "release_pkg/firmwares/ite_ec.uf2"
+          } catch {}
 
-permissions:
-  contents: write
+          try {
+            $o = Invoke-RestMethod "https://github.com" -Headers $h
+            $oa = $o.assets | Where-Object { $_.name -like "*win32-x64.zip" } | Select-Object -First 1
+            if ($oa) {
+              Invoke-WebRequest $oa.browser_download_url -OutFile "ocd.zip"
+              Expand-Archive "ocd.zip" "temp_ocd" -Force
+              $dir = Get-ChildItem "temp_ocd" -Directory | Select-Object -First 1
+              Copy-Item "$($dir.FullName)/*" -Destination "release_pkg/tools/openocd/" -Recurse -Force
+            }
+          } catch {}
 
-jobs:
-  build:
-    runs-on: windows-latest
+          try {
+            $s = Invoke-RestMethod "https://github.com" -Headers $h
+            $sa = $s.assets | Where-Object { $_.name -like "*.uf2" } | Select-Object -First 1
+            if ($sa) { Invoke-WebRequest $sa.browser_download_url -OutFile "release_pkg/firmwares/pico_serprog.uf2" }
+          } catch {}
 
-    steps:
-    - name: Descargar código del repositorio
-      uses: actions/checkout@v4
+          Get-ChildItem "release_pkg" -Recurse -File | ForEach-Object { $_.FullName }
+          Compress-Archive "release_pkg/*" "PicoSIO-Flasher-Win64.zip" -Force
 
-    - name: Configurar Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PicoSIO-Flasher-Completo-Win64
+          path: PicoSIO-Flasher-Win64.zip
 
-    - name: Instalar dependencias
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Empaquetar a .EXE con PyInstaller
-      run: |
-        pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
-
-    - name: Crear estructura y descargar firmwares
-      shell: pwsh
-      run: |
-        New-Item -ItemType Directory -Force -Path "release_pkg/firmwares" | Out-Null
-        New-Item -ItemType Directory -Force -Path "release_pkg/tools/ite_scripts" | Out-Null
-        New-Item -ItemType Directory -Force -Path "release_pkg/tools/flashrom" | Out-Null
-        New-Item -ItemType Directory -Force -Path "release_pkg/tools/openocd" | Out-Null
-        
-        Copy-Item "dist/PicoSIO-Flasher.exe" -Destination "release_pkg/"
-        if (Test-Path "chips_db.json") { Copy-Item "chips_db.json" -Destination "release_pkg/" }
-        if (Test-Path "README.md") { Copy-Item "README.md" -Destination "release_pkg/" }
-
-        $headers = @{ "User-Agent" = "GitHub-Actions-PicoSIO" }
-
-        # 1. Debugprobe oficial (Nuvoton / SMSC)
-        try {
-          $release = Invoke-RestMethod -Uri "https://github.com" -Headers $headers
-          $asset = $release.assets | Where-Object { $_.name -like "debugprobe.uf2" } | Select-Object -First 1
-          if ($asset) {
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile "release_pkg/firmwares/debugprobe.uf2"
-            Write-Output "[OK] debugprobe.uf2 descargado."
-          }
-        } catch {
-          Write-Output "[AVISO] debugprobe: $($_.Exception.Message)"
-        }
-
-        # 2. Scripts y firmware ITE (usando HEAD.zip para soportar main o master)
-        try {
-          Invoke-WebRequest -Uri "https://github.com" -OutFile "ite.zip"
-          Expand-Archive -Path "ite.zip" -DestinationPath "temp_ite" -Force
-          Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.py" | Copy-Item -Destination "release_pkg/tools/ite_scripts/"
-          $iteUf2 = Get-ChildItem -Path "temp_ite" -Recurse -Filter "*.uf2" | Select-Object -First 1
-          if ($iteUf2) {
-            Copy-Item $iteUf2.FullName -Destination "release_pkg/firmwares/ite_ec.uf2"
-            Write-Output "[OK] ite_ec.uf2 y scripts copiados."
-          }
-        } catch {
-          Write-Output "[AVISO] ITE: $($_.Exception.Message)"
-        }
-
-        # 3. OpenOCD oficial para Windows (xPack)
-        try {
-          $ocdRelease = Invoke-RestMethod -Uri "https://github.com" -Headers $headers
-          $ocdAsset = $ocdRelease.assets | Where-Object { $_.name -like "*win32-x64.zip" } | Select-Object -First 1
-          if ($ocdAsset) {
-            Invoke-WebRequest -Uri $ocdAsset.browser_download_url -OutFile "openocd.zip"
-            Expand-Archive -Path "openocd.zip" -DestinationPath "temp_ocd" -Force
-            $ocdFolder = Get-ChildItem -Path "temp_ocd" -Directory | Select-Object -First 1
-            Copy-Item "$($ocdFolder.FullName)/*" -Destination "release_pkg/tools/openocd/" -Recurse -Force
-            Write-Output "[OK] OpenOCD instalado en tools/openocd/."
-          }
-        } catch {
-          Write-Output "[AVISO] OpenOCD: $($_.Exception.Message)"
-        }
-
-        # 4. pico_serprog.uf2 (desde releases de pico-serprog en GitHub)
-        try {
-          $spRelease = Invoke-RestMethod -Uri "https://github.com" -Headers $headers
-          $spAsset = $spRelease.assets | Where-Object { $_.name -like "*.uf2" } | Select-Object -First 1
-          if ($spAsset) {
-            Invoke-WebRequest -Uri $spAsset.browser_download_url -OutFile "release_pkg/firmwares/pico_serprog.uf2"
-            Write-Output "[OK] pico_serprog.uf2 descargado."
-          }
-        } catch {
-          Write-Output "[AVISO] pico_serprog: $($_.Exception.Message)"
-        }
-
-        Write-Output "=== ARCHIVOS INCLUIDOS ==="
-        Get-ChildItem -Path "release_pkg" -Recurse -File | ForEach-Object { Write-Output $_.FullName }
-
-        Compress-Archive -Path "release_pkg/*" -DestinationPath "PicoSIO-Flasher-Win64.zip" -Force
-        exit 0
-
-    - name: Subir artefacto en Acciones
-      uses: actions/upload-artifact@v4
-      with:
-        name: PicoSIO-Flasher-Completo-Win64
-        path: PicoSIO-Flasher-Win64.zip
-
-    - name: Publicar Release oficial si es una etiqueta de versión (v*)
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v2
-      with:
-        files: PicoSIO-Flasher-Win64.zip
-
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: PicoSIO-Flasher-Win64.zip
