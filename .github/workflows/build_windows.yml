@@ -19,10 +19,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Instalar, Compilar y Empaquetar
+      - name: Instalar dependencias
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Compilar EXE
+        run: |
           pyinstaller --noconfirm --onefile --windowed --name "PicoSIO-Flasher" main.py
+
+      - name: Descargar Herramientas y Empaquetar
+        run: |
           python build_package.py
 
       - uses: actions/upload-artifact@v4
