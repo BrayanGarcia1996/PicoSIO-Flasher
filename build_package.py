@@ -24,7 +24,7 @@ def download_file(url, dest):
         print("OK:", dest)
         return True
     except Exception as e:
-        print("ERROR:", dest, e)
+        print("AVISO:", dest, e)
         return False
 
 download_file(
@@ -36,42 +36,45 @@ download_file(
     "release_pkg/firmwares/pico_serprog.uf2"
 )
 
-if download_file("https://github.com", "ite.zip"):
-    with zipfile.ZipFile("ite.zip") as z:
-        z.extractall("temp_ite")
-    for root, _, files in os.walk("temp_ite"):
-        for file in files:
-            if file.endswith(".py"):
-                shutil.copy(os.path.join(root, file), "release_pkg/tools/ite_scripts/")
-            elif file.endswith(".uf2"):
-                shutil.copy(os.path.join(root, file), "release_pkg/firmwares/ite_ec.uf2")
+try:
+    ite_ok = download_file("https://github.com", "ite.zip")
+    if not ite_ok:
+        ite_ok = download_file("https://github.com", "ite.zip")
+    if ite_ok:
+        with zipfile.ZipFile("ite.zip") as z:
+            z.extractall("temp_ite")
+        for root, _, files in os.walk("temp_ite"):
+            for file in files:
+                if file.endswith(".py"):
+                    shutil.copy(os.path.join(root, file), "release_pkg/tools/ite_scripts/")
+                elif file.endswith(".uf2"):
+                    shutil.copy(os.path.join(root, file), "release_pkg/firmwares/ite_ec.uf2")
+except Exception as e:
+    print("AVISO ITE:", e)
 
 try:
     req = urllib.request.Request(
         "https://github.com",
         headers={"User-Agent": "Mozilla/5.0"}
     )
-    data = json.loads(urllib.request.urlopen(req).read().decode())
+    data = json.loads(urllib.request.urlopen(req, timeout=30).read().decode())
     asset_url = None
     for a in data.get("assets", ()):
-        if "win32-x64.zip" in a.get("name", ""):
+        name = a.get("name", "")
+        if "win32-x64.zip" in name or "win64.zip" in name:
             asset_url = a.get("browser_download_url")
             break
     if asset_url and download_file(asset_url, "ocd.zip"):
         with zipfile.ZipFile("ocd.zip") as z:
-            z.extractall("temp_ocd")
-        for folder_name in os.listdir("temp_ocd"):
-            top = os.path.join("temp_ocd", folder_name)
+            z.extractall("C:/ocd")
+        for folder_name in os.listdir("C:/ocd"):
+            top = os.path.join("C:/ocd", folder_name)
             if os.path.isdir(top):
                 shutil.copytree(top, "release_pkg/tools/openocd", dirs_exist_ok=True)
+                print("OK: OpenOCD copiado.")
                 break
 except Exception as e:
-    print("ERROR OpenOCD:", e)
-
-print("=== RESUMEN FINAL DEL PAQUETE ===")
-for root, _, files in os.walk("release_pkg"):
-    for file in files:
-        print(os.path.join(root, file))
+    print("AVISO OpenOCD:", e)
 
 shutil.make_archive("PicoSIO-Flasher-Win64", "zip", "release_pkg")
 print("LISTO: PicoSIO-Flasher-Win64.zip creado.")
