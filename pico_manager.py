@@ -4,8 +4,7 @@ import shutil
 import psutil
 import serial.tools.list_ports
 
-# Vendor ID oficial de Raspberry Pi (RP2040 / RP2350)
-PICO_VID = 0x2E8A
+VALID_VIDS = (0x2E8A, 0xCAFE, 0x1209, 0x239A)
 
 FIRMWARE_MAP = {
     "ITE": "firmwares/ite_ec.uf2",
@@ -45,9 +44,17 @@ def flash_pico_firmware(chip_family):
         return False, f"Error al copiar firmware: {str(e)}"
 
 def find_pico_com_port():
-    """Detecta automáticamente el puerto COM asignado a la Raspberry Pi Pico en Windows."""
-    ports = serial.tools.list_ports.comports()
+    """Detecta el puerto COM de la Pico o cualquier adaptador serie USB activo."""
+    ports = list(serial.tools.list_ports.comports())
+    # 1. Buscar coincidencia por VID conocido
     for port in ports:
-        if port.vid == PICO_VID:
+        if port.vid in VALID_VIDS:
             return port.device
+    # 2. Si no coincide el VID, devolver el primer puerto USB o cualquier puerto distinto de COM1
+    for port in ports:
+        if port.device.upper() != "COM1":
+            return port.device
+    # 3. Si solo existe un puerto en todo el sistema, devolverlo
+    if ports:
+        return ports.device
     return None
