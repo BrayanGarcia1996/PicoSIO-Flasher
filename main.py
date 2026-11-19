@@ -133,7 +133,7 @@ class PicoSIOApp(ctk.CTk):
     def start_task(self, action):
         family = self.family_var.get()
         port = find_pico_com_port()
-        if not port and family != "NUVOTON_SMSC":
+        if not port and family == "ENE":
             messagebox.showerror("Error", "Conecta la Raspberry Pi Pico primero (no se detectó puerto COM).")
             return
 
