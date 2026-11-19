@@ -1,9 +1,31 @@
 import os
 import subprocess
 import datetime
+import shutil
 
 def ensure_backup_dir():
     os.makedirs("backups", exist_ok=True)
+
+def get_python_with_pyusb():
+    """Busca qué comando de Python en Windows tiene instalado pyusb."""
+    candidates = [
+        ["py", "-3.15"],
+        ["python"],
+        ["py"]
+    ]
+    for cmd in candidates:
+        if shutil.which(cmd[0]):
+            try:
+                res = subprocess.run(
+                    cmd + ["-c", "import usb.core"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                if res.returncode == 0:
+                    return cmd
+            except Exception:
+                continue
+    return ["python"]
 
 def run_command(cmd_list, log_callback):
     """Ejecuta un comando del sistema y envía la salida en tiempo real a la ventana."""
@@ -21,7 +43,7 @@ def run_command(cmd_list, log_callback):
         process.wait()
         return process.returncode == 0
     except FileNotFoundError:
-        log_callback(f"[ERROR] No se encontró la herramienta: {cmd_list[0]}. Verifica la carpeta 'tools/'.\n")
+        log_callback(f"[ERROR] No se encontró la herramienta: {cmd_list[0]}. Verifica Python o 'tools/'.\n")
         return False
     except Exception as e:
         log_callback(f"[ERROR] {str(e)}\n")
@@ -48,18 +70,19 @@ def execute_operation(family, action, com_port, file_path, log_callback):
             cmd = [flashrom_exe, "-p", programmer, "-E"]
 
     elif family == "ITE":
-        ite_script = os.path.join("tools", "ite_scripts", "ite_ec_prog.py")
+        py_cmd = get_python_with_pyusb()
+        ite_script = os.path.join("tools", "ite_scripts", "iteflash-i2cpicousb.py")
         if action == "READ":
-            cmd = ["python", ite_script, "-p", com_port, "-r", file_path]
+            cmd = py_cmd + [ite_script, "-r", file_path]
         elif action == "WRITE":
             backup_path = os.path.join("backups", f"ITE_backup_{timestamp}.bin")
             log_callback("Realizando respaldo automático de seguridad antes de escribir...\n")
-            if not run_command(["python", ite_script, "-p", com_port, "-r", backup_path], log_callback):
+            if not run_command(py_cmd + [ite_script, "-r", backup_path], log_callback):
                 log_callback("[ABORTADO] Falló el respaldo de seguridad.\n")
                 return False
-            cmd = ["python", ite_script, "-p", com_port, "-w", file_path]
+            cmd = py_cmd + [ite_script, "-w", file_path]
         elif action == "ERASE":
-            cmd = ["python", ite_script, "-p", com_port, "-e"]
+            cmd = py_cmd + [ite_script, "-e"]
 
     elif family == "NUVOTON_SMSC":
         openocd_exe = os.path.join("tools", "openocd", "bin", "openocd.exe")
